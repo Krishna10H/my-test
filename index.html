@@ -6,6 +6,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="screen-orientation" content="landscape">
     <meta name="theme-color" content="#03030c">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icon-192.png">
@@ -26,6 +27,7 @@
             background-color: #03030c;
             font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             color: #ffffff;
+            overscroll-behavior: none;
         }
         #game-container {
             position: relative;
@@ -72,6 +74,8 @@
             visibility: hidden;
             transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.4s;
             z-index: 10;
+            overflow-y: auto;
+            padding: 10px 0;
         }
         .menu-screen.active {
             opacity: 1;
@@ -443,11 +447,26 @@
         .dpad-left .dpad-btn.dpad-btn-b { right: 0; top: 48px; }
         .dpad-right .dpad-btn.dpad-btn-a { left: 48px; top: 0; }
         .dpad-right .dpad-btn.dpad-btn-b { left: 48px; bottom: 0; }
+
+        /* --- Landscape (primary Android orientation) tuning --- */
         @media (min-width: 769px) {
             .mobile-controls { display: none !important; }
         }
+        @media (max-width: 768px) and (orientation: landscape) {
+            .dpad-cluster { width: 148px; height: 148px; bottom: 14px; }
+            .dpad-btn { width: 62px; height: 62px; font-size: 1.6rem; }
+            .dpad-left .dpad-btn.dpad-btn-a { top: 42px; }
+            .dpad-left .dpad-btn.dpad-btn-b { top: 42px; }
+            .hud-top { padding: 8px 16px; }
+            .hud-value { font-size: 0.95rem; padding: 4px 10px; }
+            h1.title { font-size: 3rem; letter-spacing: 0.4rem; margin-bottom: 0.8rem; }
+            .game-hint { font-size: 0.8rem; padding: 0.7rem 1rem; margin-bottom: 1rem; max-height: 30vh; overflow-y: auto; }
+            .btn { padding: 0.7rem 1.6rem; font-size: 0.95rem; }
+            .btn-group { gap: 0.7rem; }
+            .settings-panel { padding: 1.2rem; max-height: 85vh; overflow-y: auto; }
+        }
 
-        @media (max-width: 768px) {
+        @media (max-width: 768px) and (orientation: portrait) {
             h1.title { font-size: 2.8rem; letter-spacing: 0.4rem; }
             .sub-title { font-size: 1.4rem; }
             .hud-top { padding: 10px 15px; }
@@ -460,7 +479,7 @@
 <body>
     <div id="rotatePrompt" class="rotate-prompt">
         <span class="rotate-icon">🔄</span>
-        <span>Rotate your device for the best experience</span>
+        <span>Rotate your device to landscape for the best experience</span>
         <button id="rotatePromptClose" aria-label="Dismiss">✕</button>
     </div>
     <div id="game-container">
@@ -837,10 +856,6 @@
                 this.y = y;
                 this.r = 13;
                 this.pulseTime = Math.random() * 100;
-                // 'coin' (default) is the normal pickup. 'shield' is a rare bonus
-                // pickup that grants a few seconds of invincibility - same safe
-                // collision rules as a coin, just drawn differently and handled
-                // specially on pickup (see the collection loop in update()).
                 this.type = type || 'coin';
             }
             update(dt) {
@@ -874,8 +889,6 @@
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
                 if (isShield) {
-                    // Little shield-shaped notch so it silhouettes differently from
-                    // a plain coin even at a glance mid-gameplay.
                     ctx.arc(this.x, drawY, this.r * 0.55, 0.3, Math.PI * 2 - 0.3);
                 } else {
                     ctx.arc(this.x, drawY, this.r * 0.5, 0, Math.PI * 2);
@@ -885,13 +898,6 @@
                 ctx.restore();
             }
             collidesWithCircle(cx, cy, cr) {
-                // Coins are only collected when a BALL actually touches them - the
-                // connecting rope passing over a coin no longer counts. This matches
-                // the same rule already used for obstacles: only the two circles at
-                // the ends of the rope are ever "solid" for collision purposes. A
-                // small forgiving pickup buffer (beyond the coin's drawn radius) keeps
-                // collection feeling fair now that the ball has to physically arrive,
-                // rather than the connecting rope sweeping over it.
                 const pickupR = this.r + 6;
                 let dx = cx - this.x;
                 let dy = cy - this.y;
@@ -1033,7 +1039,6 @@
                 this.levelTimer = 0;
                 this.levelStartTime = 0;
                 
-                // Smooth speed ramp state (see update())
                 this.speedMultiplier = 1.0;
                 this.lastSpeedMilestone = 0;
                 this.level = 1;
@@ -1047,25 +1052,16 @@
                 this.p2 = { x: 340, y: 800, r: 14, color: '#a855f7', trail: [] };
                 this.colorCycleTime = 0;
                 
-                // Every-minute UI theme cycle: shifts the whole game's color palette
-                // (canvas + HUD + D-pad buttons) via a CSS hue-rotate, purely cosmetic.
                 this.themeTimer = 0;
                 this.themeHue = 0;
                 
-                // "Level Devil" style unpredictable twist: left/right controls get
-                // reversed for a few seconds every so often. Always telegraphed with
-                // a clear on-screen warning first (never a silent ambush), and the
-                // gap/obstacle math is unaffected - so this only makes execution
-                // harder and more surprising, never actually unfair or unbeatable.
                 this.twistState = 'idle'; // 'idle' | 'warning' | 'active'
                 this.twistStateTimer = 0;
                 this.nextTwistIn = 45 + Math.random() * 20;
                 
-                // Shield power-up state - see spawnGapCoin() and the collision loop.
                 this.shieldSpawnCooldown = 20 + Math.random() * 15;
                 this.shieldTimer = 0;
                 
-                // Combo state - see the coin-collection loop in update().
                 this.combo = 0;
                 this.comboTimer = 0;
                 
@@ -1120,14 +1116,15 @@
                 this.adjustMobileControlsLayout();
             }
             adjustMobileControlsLayout() {
-                // This game's play area is a fixed tall (portrait) rectangle. On a
-                // phone rotated to landscape, that rectangle gets letterboxed with
-                // wide empty margins on either side. Instead of leaving the D-pad
-                // sitting on top of the actual gameplay (which is what people found
-                // "irritating"), float it into those empty margins - completely
-                // clear of the visible track - whenever there's enough room. Falls
-                // back to the normal bottom-corner layout otherwise (portrait, or a
-                // landscape phone too close to square to have a real margin).
+                // On Android, this game runs locked to landscape (see manifest.json
+                // and requestLandscape() below). In landscape, the fixed-ratio
+                // portrait play field is letterboxed with empty margins on either
+                // side of the canvas. The D-pad clusters are floated fully into
+                // those side margins - clear of the visible track - whenever there's
+                // enough room. If the margins are too tight (e.g. a very wide/short
+                // window, or the rare case orientation lock isn't available and the
+                // device is still portrait) it falls back to the normal bottom-corner
+                // overlay layout so the controls are always reachable.
                 const mc = document.getElementById('mobileControls');
                 if (!mc) return;
                 const leftCluster = mc.querySelector('.dpad-left');
@@ -1137,9 +1134,9 @@
                 const canvasRect = this.canvas.getBoundingClientRect();
                 const marginLeft = canvasRect.left - containerRect.left;
                 const marginRight = containerRect.right - canvasRect.right;
-                const clusterSize = 168;
+                const clusterSize = window.innerWidth <= 768 ? 148 : 168;
                 
-                if (marginLeft > clusterSize * 0.62 && marginRight > clusterSize * 0.62) {
+                if (marginLeft > clusterSize * 0.6 && marginRight > clusterSize * 0.6) {
                     leftCluster.style.left = `${Math.max(6, marginLeft / 2 - clusterSize / 2)}px`;
                     leftCluster.style.bottom = 'auto';
                     leftCluster.style.top = '50%';
@@ -1158,6 +1155,18 @@
                     rightCluster.style.top = '';
                     rightCluster.style.transform = '';
                 }
+            }
+            requestLandscape() {
+                // Best-effort Screen Orientation API lock. Browsers only honor this
+                // in fullscreen or standalone/installed-PWA contexts, so failures are
+                // swallowed silently - the CSS/manifest orientation hint and the
+                // dismissible rotate prompt act as the fallback everywhere else.
+                try {
+                    const orientation = screen.orientation || screen.mozOrientation || screen.msOrientation;
+                    if (orientation && orientation.lock) {
+                        orientation.lock('landscape').catch(() => {});
+                    }
+                } catch (e) { /* orientation lock unsupported - ignore */ }
             }
             loadProgress() {
                 try {
@@ -1256,10 +1265,6 @@
                     if(e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.input.down = false;
                 });
                 
-                // Visible on-screen D-pad buttons (Android/touch friendly). Each button
-                // maps directly to one input flag and supports multi-touch, mouse, and
-                // stylus via Pointer Events, with the flag cleared on release/leave/cancel
-                // so a dragged-off finger never leaves a direction stuck "on".
                 const setupDpadButton = (id, key) => {
                     const el = document.getElementById(id);
                     if (!el) return;
@@ -1286,12 +1291,13 @@
             }
             toggleFullscreen() {
                 if (!document.fullscreenElement) {
-                    document.documentElement.requestFullscreen().catch(err => {});
+                    document.documentElement.requestFullscreen().then(() => this.requestLandscape()).catch(() => {});
                 } else {
                     document.exitFullscreen();
                 }
             }
             startGameplay() {
+                this.requestLandscape();
                 this.score = 0;
                 this.speedMultiplier = 1.0;
                 this.lastSpeedMilestone = 0;
@@ -1348,48 +1354,14 @@
                 this.gameState = 'play';
                 Snd.init();
                 this.saveProgress();
+                setTimeout(() => this.resizeCanvas(), 50);
             }
             generateNextChunk() {
                 const w = this.width;
                 const y = this.generationY;
                 
-                // Gradual difficulty ramp: 0 at the start of a run, climbing smoothly
-                // to 1 over the first 4 minutes and then holding steady. Used below to
-                // slowly tighten gaps and speed up moving hazards over time, on top of
-                // the separate rope-speed ramp in update().
                 const diff = Math.min(1, this.levelTimer / 240);
-                
-                // Endless intensity scaling, separate from `diff` above. `diff` stays
-                // capped at 1 forever because it drives the safe-gap math below and
-                // that safety proof only holds at diff<=1. `hyperDiff` keeps climbing
-                // slowly with no cap (based on the endless LEVEL counter) and is only
-                // ever applied to cosmetic/motion speed knobs (oscillation & rotation
-                // speed) - never to gap sizes - so runs keep getting more frantic the
-                // longer a skilled player survives, without ever becoming unfair.
-                // Bug fix: hyperDiff used to grow with NO cap (1 + (level-1)*0.06),
-                // meaning a long run at level 40-50+ would make sine/spin/roaming
-                // hazards move 3-4x faster than intended - fast enough that no human
-                // reaction time could track them, which is the "block moving too fast,
-                // I can't go" bug being reported. It now eases toward a firm ceiling
-                // (1.6x) instead of climbing forever, so late-game stays hard but
-                // always humanly reactable.
                 const hyperDiff = 1 + Math.min(0.6, Math.max(0, this.level - 1) * 0.04);
-                
-                // Bug fix: the old logic picked wall/box widths (and oscillation ranges)
-                // fully independently, which meant the two sides could sometimes add up
-                // to MORE than the track width - closing the gap completely and creating
-                // an obstacle that was mathematically impossible to dodge. Everything
-                // below is now budgeted against a guaranteed-safe minimum gap, which
-                // itself gradually tightens (but never below a safe floor) as diff rises.
-                //
-                // Bug fix #2 (this pass): at max difficulty the old formula bottomed out
-                // at 90px, only 2px above the bare mathematical minimum a fully-contracted
-                // rope can fit through (minRopeSpread 60 + both ball radii 28 = 88px).
-                // 2px of "margin" isn't really passable in live gameplay once you factor
-                // in the rope's own smoothing lag - it LOOKED fittable but wasn't
-                // reliably fittable, which is exactly the "box too small even at minimum"
-                // bug being reported. absMinGap is the true physical minimum; safeGap now
-                // always keeps a real ~14px cushion above it, even at max difficulty.
                 const ballR = this.p1.r;
                 const absMinGap = this.minRopeSpread + ballR * 2;
                 const safeGap = Math.max(absMinGap + 14, (this.minRopeSpread + 45) - diff * 15);
@@ -1398,12 +1370,6 @@
                 const cDanger = '#ef4444';
                 const cPurp = '#a855f7';
                 
-                // Level-weighted pattern selection: as the endless LEVEL counter climbs,
-                // the easy static gate shows up less, and the precision/squeeze patterns
-                // that demand exact positioning show up more - so "upcoming" chunks keep
-                // getting meaningfully harder, not just faster. lvlFactor eases from 0
-                // (level 1) up to 1 (level 16+) and never exceeds it, so late-game stays
-                // hard-but-fair instead of spiraling into an impossible wall of hazards.
                 const lvlFactor = Math.min(1, Math.max(0, this.level - 1) / 15);
                 const canSqueeze = diff > 0.2;
                 const canPrecision = diff > 0.15;
@@ -1427,13 +1393,8 @@
                 }
                 
                 if (chosen === 'gates') {
-                    // Randomized spatial gates (static walls)
                     const maxCombined = w - safeGap;
                     const leftBoundaryRandomWidth = 60 + Math.random() * Math.max(0, Math.min(160, maxCombined - 120));
-                    // Defensive final clamp: whatever the random right width comes out to,
-                    // never let it eat into the reserved safeGap - this guarantees the
-                    // ACTUAL gap (w - left - right) is always >= safeGap, closing off any
-                    // edge case in the randomization above.
                     const rightBoundaryRandomWidth = Math.min(
                         Math.max(60, Math.min(220, maxCombined - leftBoundaryRandomWidth)),
                         w - leftBoundaryRandomWidth - safeGap
@@ -1442,16 +1403,10 @@
                     this.obstacles.push(new Obstacle({type:'wall', x:w - rightBoundaryRandomWidth, y:y, w:rightBoundaryRandomWidth, h:45, color:cStatic}));
                     this.spawnGapCoin(leftBoundaryRandomWidth, w - rightBoundaryRandomWidth, y);
                 } else if (chosen === 'sine') {
-                    // Sinusoidal sliding blocks - range/speed creep up with diff, but
-                    // range is still reserved space, so even at the worst point of the
-                    // oscillation the gap can't fully close.
                     const range = (20 + Math.random() * 35) * (1 + diff * 0.3);
                     const speed = Math.min(0.075, (0.02 + Math.random() * 0.03) * (1 + diff * 0.4) * hyperDiff);
                     const maxCombined = w - safeGap - range * 2;
                     const leftBoundaryRandomWidth = 50 + Math.random() * Math.max(0, Math.min(100, maxCombined - 100));
-                    // Same defensive clamp as the gates pattern above: never let the
-                    // right block's random width eat into the space already reserved
-                    // for safeGap + both oscillation ranges.
                     const rightBoundaryRandomWidth = Math.min(
                         Math.max(50, Math.min(150, maxCombined - leftBoundaryRandomWidth)),
                         w - leftBoundaryRandomWidth - safeGap - range * 2
@@ -1460,9 +1415,6 @@
                     this.obstacles.push(new Obstacle({type:'box', x:w - rightBoundaryRandomWidth, y:y, w:rightBoundaryRandomWidth, h:50, moveType:'sineX', rangeX:-range, speed:speed, color:cDanger}));
                     this.spawnGapCoin(leftBoundaryRandomWidth + range, w - rightBoundaryRandomWidth - range, y);
                 } else if (chosen === 'spin') {
-                    // Spinning hazards - spin faster with diff, but arms are kept at a
-                    // fixed safe distance from the center regardless of randomization,
-                    // so the swing radius never reaches the middle.
                     const rot = Math.min(0.08, (0.02 + Math.random() * 0.03) * (1 + diff * 0.5) * hyperDiff);
                     const armLeftX = 90 + Math.random() * 60;
                     const armRightX = w - (90 + Math.random() * 60);
@@ -1470,29 +1422,16 @@
                     this.obstacles.push(new Obstacle({type:'rotatingBar', x:armRightX, y:y, w:90, h:25, rotSpeed:-rot, color:cPurp}));
                     this.spawnGapCoin(armLeftX + 65, armRightX - 65, y);
                 } else if (chosen === 'straddle') {
-                    // Straddle pillar - a single hazard sits dead-center on the track.
-                    // The only way through is to actively STRETCH the rope wide enough
-                    // that both balls pass on either side of it (contracting or just
-                    // sliding left/right will not save you here). Grows slightly with
-                    // diff, but is always capped so it stays safely under maxRopeSpread.
                     const pillarR = 55 + Math.random() * 25 + diff * 10;
                     const ballR = this.p1.r;
                     const requiredSpread = pillarR * 2 + ballR * 2 + 20;
                     this.obstacles.push(new Obstacle({type:'circle', x:w/2, y:y, r:pillarR, color:'#f97316'}));
-                    // Coins on either side reward (and confirm) a clean straddle.
                     if (this.coinTimer <= 0) {
                         this.coins.push(new Coin(w/2 - requiredSpread/2 + 5, y - 20));
                         this.coins.push(new Coin(w/2 + requiredSpread/2 - 5, y - 20));
                         this.coinTimer = 3.0;
                     }
                 } else if (chosen === 'squeeze') {
-                    // Narrow squeeze - twin pillars planted close together in the
-                    // middle of the track. This is the mirror image of the wide
-                    // straddle pattern above: here the rope must be CONTRACTED down
-                    // to fit through the gap between them (going wide just slams a
-                    // ball straight into one of the pillars). Unlocks only once the
-                    // run has some difficulty behind it, so new players meet the
-                    // wide-straddle pattern first and this twist later.
                     const gap = Math.max(absMinGap + 14, safeGap + 8 - diff * 6);
                     const pillarR = 42 + Math.random() * 14;
                     const wobble = (Math.random() - 0.5) * 70;
@@ -1504,13 +1443,6 @@
                         this.coinTimer = 3.0;
                     }
                 } else if (chosen === 'precision') {
-                    // Precision middle gap - a single tight gate whose gap is randomly
-                    // positioned ANYWHERE across the track (not mirrored/symmetric like
-                    // the regular gate), and is sized just wide enough for both balls to
-                    // fit if - and only if - you both slide to the exact spot AND size
-                    // the rope exactly right. This is the hardest of the "gap" family:
-                    // there is zero slack once diff is high, so both moving and stretching
-                    // need to land precisely rather than roughly.
                     const gapW = Math.max(absMinGap + 14, safeGap + 6 - diff * 8);
                     const margin = 65;
                     const gapMaxX = Math.max(margin + 10, w - margin - gapW);
@@ -1519,41 +1451,26 @@
                     this.obstacles.push(new Obstacle({type:'wall', x:gapX + gapW, y:y, w: w - (gapX + gapW), h:48, color:'#facc15'}));
                     this.spawnGapCoin(gapX, gapX + gapW, y);
                 } else if (chosen === 'centerOrb') {
-                    // Center orb dodge - a single round hazard parked off-center in
-                    // the track, unlike the paired/symmetric obstacles above. There is
-                    // always a fully clear side to slide the WHOLE rope into (never
-                    // split down the middle like the straddle/squeeze patterns), so
-                    // this is pure move-left/move-right skill rather than stretching.
-                    // Which side stays open is randomized every time it appears.
                     const orbR = 45 + Math.random() * 35 + diff * 15;
                     const margin = safeGap;
                     const openLeft = Math.random() < 0.5;
                     let orbX;
                     if (openLeft) {
-                        // Orb sits in the right portion of the track - left stays open.
                         const minOrbX = w * 0.45;
                         const maxOrbX = Math.max(minOrbX, w - margin - orbR);
                         orbX = minOrbX + Math.random() * (maxOrbX - minOrbX);
                     } else {
-                        // Orb sits in the left portion of the track - right stays open.
                         const maxOrbX = w * 0.55;
                         const minOrbX = Math.min(maxOrbX, margin + orbR);
                         orbX = minOrbX + Math.random() * (maxOrbX - minOrbX);
                     }
                     this.obstacles.push(new Obstacle({type:'circle', x:orbX, y:y, r:orbR, color:'#38bdf8'}));
-                    // Coin sits on the guaranteed-open side, confirming the safe route.
                     const coinX = openLeft ? Math.max(40, orbX - orbR - 40) : Math.min(w - 40, orbX + orbR + 40);
                     if (this.coinTimer <= 0) {
                         this.coins.push(new Coin(coinX, y - 20));
                         this.coinTimer = 3.0;
                     }
                 } else {
-                    // Roaming middle hazard - unlike the other patterns, this single
-                    // block doesn't come from a side, it drifts back and forth through
-                    // the MIDDLE of the track at random. It gets wider (harder to
-                    // dodge) as diff rises, but its patrol range is always kept inside
-                    // a safe margin, so there's always at least one side with room -
-                    // never an impossible block.
                     const margin = safeGap;
                     const hazW = 150 + diff * 70 + Math.random() * 30;
                     const patrolRange = Math.max(20, (w - hazW) - margin * 2);
@@ -1565,22 +1482,13 @@
                     }));
                 }
                 
-                // Chunk spacing tightens slightly (and endlessly, within a safe floor)
-                // as the run's LEVEL climbs, so higher levels feel like a faster,
-                // denser gauntlet rather than just a raw speed increase.
                 const spacing = Math.max(260, 360 - Math.max(0, this.level - 1) * 4);
                 this.generationY -= spacing;
             }
             spawnGapCoin(gapStart, gapEnd, y) {
-                // Places the coin in the middle of the ACTUAL safe gap for this chunk,
-                // instead of the old fixed screen-center position, which could land the
-                // coin inside a wall on asymmetric layouts.
                 if (this.coinTimer <= 0 && gapEnd > gapStart) {
                     const cx = (gapStart + gapEnd) / 2;
                     const cy = y - 20;
-                    // Rare shield power-up: swaps in for a normal coin every once in a
-                    // while (gated by a cooldown so they never cluster), granting a
-                    // few seconds of invincibility when collected.
                     if (this.shieldSpawnCooldown <= 0 && Math.random() < 0.12) {
                         this.coins.push(new Coin(cx, cy, 'shield'));
                         this.shieldSpawnCooldown = 45 + Math.random() * 30;
@@ -1670,9 +1578,6 @@
                     this.levelTimer = (performance.now() - this.levelStartTime) / 1000;
                     document.getElementById('hudTimer').innerText = this.formatTime(this.levelTimer);
                     
-                    // Smooth, continuous difficulty ramp - speed creeps up every single
-                    // second instead of jumping +0.35x in one sudden spike every 2
-                    // minutes. Same long-run growth rate, but it now feels gradual.
                     this.speedMultiplier = 1 + this.levelTimer * 0.0035;
                     document.getElementById('hudSpeedMultiplier').innerText = `SPEED: ${this.speedMultiplier.toFixed(2)}x`;
                     const milestone = Math.floor((this.speedMultiplier - 1) / 0.5);
@@ -1682,10 +1587,6 @@
                         this.shakeAmount = this.shakeEnabled ? 12 : 0;
                     }
                     
-                    // Endless LEVEL system - climbs forever (every 18s of survival),
-                    // independent of the 0-1 "diff" curve used for obstacle tuning.
-                    // Gives players a clear, escalating sense of progress and unlocks
-                    // tougher obstacle patterns in generateNextChunk() as it climbs.
                     const newLevel = 1 + Math.floor(this.levelTimer / 18);
                     if (newLevel > this.level) {
                         this.level = newLevel;
@@ -1716,24 +1617,16 @@
                     if(this.targetCenter > this.width - bound) { this.targetCenter = this.width - bound; this.centerVel = 0; }
                     this.currentCenter += (this.targetCenter - this.currentCenter) * 0.15 * dt * 60;
                     
-                    // Size control handling (Rope remains functional, perfectly straight line vector design)
                     let stretchRate = 4.5 * dt * 60;
                     if (this.input.up) this.ropeSpread += stretchRate;
                     if (this.input.down) this.ropeSpread -= stretchRate;
                     this.ropeSpread = Math.max(this.minRopeSpread, Math.min(this.maxRopeSpread, this.ropeSpread));
                     
-                    // Living color - the two balls continuously cycle through a
-                    // shifting rainbow (180 degrees apart so they always contrast),
-                    // instead of staying a fixed white/purple for the whole run.
                     this.colorCycleTime += dt;
                     const hue = (this.colorCycleTime * 45) % 360;
                     this.p1.color = `hsl(${hue.toFixed(0)}, 85%, 65%)`;
                     this.p2.color = `hsl(${((hue + 180) % 360).toFixed(0)}, 85%, 65%)`;
                     
-                    // Every-minute theme shift - the ENTIRE game's palette (canvas,
-                    // HUD, D-pad buttons, everything) rotates to a new color scheme
-                    // once a minute via a CSS hue-rotate filter on the container, so
-                    // long runs keep feeling visually fresh rather than static.
                     this.themeTimer += dt;
                     if (this.themeTimer >= 60) {
                         this.themeTimer = 0;
@@ -1741,9 +1634,6 @@
                         document.getElementById('game-container').style.filter = `hue-rotate(${this.themeHue}deg)`;
                     }
                     
-                    // "Level Devil" style twist state machine - idle, countdown to a
-                    // telegraphed warning, then a few seconds of reversed left/right
-                    // controls, then back to idle with a fresh random countdown.
                     const twistBanner = document.getElementById('twistBanner');
                     if (this.twistState === 'idle') {
                         this.nextTwistIn -= dt;
@@ -1773,7 +1663,6 @@
                         }
                     }
                     
-                    // Velocity calculation incorporating score mechanics and permanent timed multiplier steps
                     let speed = (2.4 + Math.min(2.0, this.score * 0.06)) * this.speedMultiplier;
                     this.p1.y -= speed * dt * 60;
                     this.p2.y = this.p1.y;
@@ -1795,12 +1684,6 @@
                         this.generateNextChunk();
                     }
                     
-                    // Level failure only happens when a BALL touches an obstacle.
-                    // The rope line between the balls is allowed to visually cross
-                    // over/through boxes and pillars with zero penalty - only the two
-                    // circles at the ends are ever checked against obstacles below.
-                    // While a shield power-up is active, obstacle hits are ignored
-                    // entirely instead of ending the run.
                     if (this.shieldTimer > 0) {
                         this.shieldTimer -= dt;
                         if (this.shieldTimer < 0) this.shieldTimer = 0;
@@ -1840,9 +1723,6 @@
                                 Snd.play('coin');
                                 this.triggerCoinCollectionParticles(coin.x, coin.y);
                                 
-                                // Combo: quick consecutive collects raise a multiplier
-                                // that boosts each subsequent coin's value, resetting if
-                                // too much time passes between pickups.
                                 this.combo = this.comboTimer > 0 ? this.combo + 1 : 1;
                                 this.comboTimer = 2.2;
                                 const gain = 1 + Math.floor((this.combo - 1) / 2);
@@ -1861,7 +1741,7 @@
                             }
                             
                             this.coins.splice(i, 1);
-                            this.coinTimer = 3.0; // Clear channel sequence interval validation loop
+                            this.coinTimer = 3.0;
                             continue;
                         }
                         
@@ -1901,8 +1781,6 @@
                     let dy = (Math.random() - 0.5) * this.shakeAmount;
                     this.ctx.translate(dx, dy);
                 }
-                // Background hue drifts gradually with LEVEL so long endless runs pass
-                // through subtly different color moods instead of one static backdrop.
                 const bgHue = (this.level * 18) % 360;
                 let bgGrad = this.ctx.createLinearGradient(0, 0, 0, this.height);
                 bgGrad.addColorStop(0, `hsl(${bgHue}, 55%, 4%)`);
@@ -1950,9 +1828,6 @@
                 let drawY = p.y - this.cameraY;
                 
                 if (this.shieldTimer > 0) {
-                    // Pulsing shield ring - visually confirms invincibility is active
-                    // and (via shrinking opacity in its last second) warns it's about
-                    // to expire.
                     this.ctx.save();
                     const fade = this.shieldTimer < 1 ? this.shieldTimer : 1;
                     this.ctx.globalAlpha = 0.55 * fade + 0.2 * Math.sin(this.colorCycleTime * 6);
@@ -2010,10 +1885,13 @@
 
         window.addEventListener('DOMContentLoaded', () => {
             window.GameInstance = new Game();
+            window.GameInstance.requestLandscape();
             
-            // Friendly rotate-to-landscape hint. Purely a suggestion - the game is
-            // still fully playable in portrait - so it's dismissible and only shown
-            // once per session on a real touch device that's currently upright.
+            // Friendly rotate-to-landscape hint. The game locks to landscape via
+            // manifest.json (installed PWA) and the Screen Orientation API (once
+            // fullscreen), but neither is guaranteed on every browser, so this
+            // dismissible banner is the fallback for anyone still holding the
+            // device upright.
             const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
             let rotatePromptDismissed = false;
             const rotatePromptEl = document.getElementById('rotatePrompt');
@@ -2032,6 +1910,16 @@
             window.addEventListener('resize', updateRotatePrompt);
             window.addEventListener('orientationchange', () => setTimeout(updateRotatePrompt, 150));
             updateRotatePrompt();
+
+            // Re-assert the landscape lock whenever the tab regains fullscreen or
+            // visibility (Android often resets orientation lock after a
+            // backgrounding/fullscreen toggle).
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) window.GameInstance.requestLandscape();
+            });
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) window.GameInstance.requestLandscape();
+            });
         });
     </script>
 </body>
