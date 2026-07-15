@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#03030c">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>THE WEAVE</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #03030c;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #ffffff;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: filter 3s ease;
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 0 30px rgba(138, 43, 226, 0.3);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        .menu-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at center, rgba(10, 10, 32, 0.85) 0%, rgba(3, 3, 12, 0.98) 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1), visibility 0.4s;
+            z-index: 10;
+        }
+        .menu-screen.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        h1.title {
+            font-size: 4.5rem;
+            font-weight: 900;
+            letter-spacing: 0.8rem;
+            text-transform: uppercase;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(90deg, #ffffff 0%, #d8b4fe 50%, #a855f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.6));
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 15px rgba(168, 85, 247, 0.5)); }
+            50% { filter: drop-shadow(0 0 30px rgba(168, 85, 247, 0.8)); }
+        }
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            width: 280px;
+        }
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 8px;
+            color: #ffffff;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.15rem;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            outline: none;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+            transition: left 0.6s ease;
+        }
+        .btn:hover::before {
+            left: 100%;
+        }
+        .btn:hover {
+            transform: scale(1.06);
+            background: rgba(168, 85, 247, 0.15);
+            border-color: rgba(168, 85, 247, 0.8);
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        .btn:active {
+            transform: scale(0.98);
+        }
+        .hud-top {
+            width: 100%;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, rgba(3, 3, 12, 0.8) 0%, transparent 100%);
+            z-index: 5;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        .hud-top.active {
+            opacity: 1;
+        }
+        .hud-left, .hud-right {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .hud-value {
+            font-family: monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .score-indicator {
+            border-color: rgba(251, 191, 36, 0.5);
+            text-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+            font-weight: 800;
+        }
+        .hud-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        .hud-top:not(.active) .hud-btn-group {
+            pointer-events: none;
+        }
+        .hud-icon-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .hud-icon-btn:hover {
+            background: rgba(168, 85, 247, 0.2);
+            border-color: rgba(168, 85, 247, 0.6);
+            transform: scale(1.08);
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+        }
+        .settings-panel {
+            width: 400px;
+            max-width: 90%;
+            background: rgba(15, 15, 35, 0.95);
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6), 0 0 30px rgba(168, 85, 247, 0.15);
+        }
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .setting-label {
+            font-size: 1rem;
+            letter-spacing: 0.05rem;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+        .setting-control input[type="checkbox"] {
+            appearance: none;
+            width: 46px;
+            height: 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .setting-control input[type="checkbox"]:checked {
+            background: #a855f7;
+            border-color: #c084fc;
+        }
+        .setting-control input[type="checkbox"]::before {
+            content: '';
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .setting-control input[type="checkbox"]:checked::before {
+            transform: translateX(22px);
+        }
+        .setting-control select {
+            background: #0f0f23;
+            border: 1px solid rgba(168, 85, 247, 0.4);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .setting-control select:hover {
+            border-color: rgba(168, 85, 247, 0.8);
+        }
+        .credits-container {
+            text-align: center;
+            max-width: 500px;
+            line-height: 1.8;
+            color: #cbd5e1;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .credits-container h3 {
+            color: #ffffff;
+            margin-bottom: 1rem;
+            letter-spacing: 0.1rem;
+            text-transform: uppercase;
+        }
+        .credits-container p span {
+            color: #c084fc;
+            font-weight: 600;
+        }
+        .sub-title {
+            font-size: 1.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.3rem;
+            margin-bottom: 2rem;
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+        .game-hint {
+            max-width: 520px;
+            margin: 0 auto 2rem;
+            padding: 1rem 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #94a3b8;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 8px;
+        }
+        .game-hint span { color: #c084fc; font-weight: 600; }
+        .mobile-controls {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: none;
+            z-index: 6;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        .dpad-cluster {
+            position: absolute;
+            bottom: 26px;
+            width: 168px;
+            height: 168px;
+            pointer-events: none;
+        }
+        .dpad-cluster.dpad-left { left: 14px; }
+        .dpad-cluster.dpad-right { right: 14px; }
+        .dpad-label {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.18rem;
+            color: rgba(255, 255, 255, 0.5);
+            text-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+            pointer-events: none;
+        }
+        .dpad-btn {
+            position: absolute;
+            width: 72px;
+            height: 72px;
+            border-radius: 20px;
+            background: rgba(25, 20, 48, 0.7);
+            border: 2px solid rgba(168, 85, 247, 0.55);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 14px rgba(168, 85, 247, 0.25);
+            color: #ffffff;
+            font-size: 1.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+            touch-action: none;
+            -webkit-tap-highlight-color: transparent;
+            transition: background 0.12s, border-color 0.12s, transform 0.12s, box-shadow 0.12s;
+        }
+        .dpad-btn:active,
+        .dpad-btn.pressed {
+            background: rgba(168, 85, 247, 0.55);
+            border-color: rgba(216, 180, 254, 1);
+            transform: scale(0.90);
+            box-shadow: 0 0 26px rgba(168, 85, 247, 0.8), inset 0 1px 0 rgba(255,255,255,0.25);
+        }
+        .dpad-left .dpad-btn.dpad-btn-a { left: 0; top: 48px; }
+        .dpad-left .dpad-btn.dpad-btn-b { right: 0; top: 48px; }
+        .dpad-right .dpad-btn.dpad-btn-a { left: 48px; top: 0; }
+        .dpad-right .dpad-btn.dpad-btn-b { left: 48px; bottom: 0; }
+        @media (min-width: 769px) {
+            .mobile-controls { display: none !important; }
+        }
+
+        @media (max-width: 768px) {
+            h1.title { font-size: 2.8rem; letter-spacing: 0.4rem; }
+            .sub-title { font-size: 1.4rem; }
+            .hud-top { padding: 10px 15px; }
+            .hud-value { font-size: 1rem; padding: 4px 8px; }
+            .settings-panel { padding: 1.2rem; }
+            .setting-row { margin-bottom: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div class="mobile-controls" id="mobileControls">
+            <div class="dpad-cluster dpad-left">
+                <div class="dpad-label">MOVE</div>
+                <button class="dpad-btn dpad-btn-a" id="btnTouchLeft">◀</button>
+                <button class="dpad-btn dpad-btn-b" id="btnTouchRight">▶</button>
+            </div>
+            <div class="dpad-cluster dpad-right">
+                <div class="dpad-label">STRETCH</div>
+                <button class="dpad-btn dpad-btn-a" id="btnTouchUp">▲</button>
+                <button class="dpad-btn dpad-btn-b" id="btnTouchDown">▼</button>
+            </div>
+        </div>
+        <div class="ui-layer">
+            <div class="hud-top" id="hud">
+                <div class="hud-left">
+                    <div class="hud-value" id="hudLevel" style="color: #34d399; border-color: rgba(52, 211, 153, 0.3)">LEVEL 1</div>
+                    <div class="hud-value score-indicator" id="hudScore">COINS: 0</div>
+                    <div class="hud-value" id="hudBestScore" style="display: none; color: #fbbf24; border-color: rgba(251, 191, 36, 0.2)">BEST: 0</div>
+                    <div class="hud-value" id="hudSpeedMultiplier" style="display: none; color: #ef4444; border-color: rgba(239, 68, 68, 0.2)">SPEED: 1.0x</div>
+                </div>
+                <div class="hud-right">
+                    <div class="hud-value" id="hudTimer">00:00.00</div>
+                    <div class="hud-value" id="hudDeaths">DEATHS: 0</div>
+                    <div class="hud-btn-group interactive">
+                        <button class="hud-icon-btn" id="btnHudFullscreen" title="Fullscreen">⛶</button>
+                        <button class="hud-icon-btn" id="btnHudRestart" title="Restart">⟳</button>
+                        <button class="hud-icon-btn" id="btnHudSettings" title="Settings">⚙</button>
+                        <button class="hud-icon-btn" id="btnHudPause" title="Pause">⏸</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="menu-screen active interactive" id="screenMain">
+                <h1 class="title">The Weave</h1>
+                <p class="game-hint">
+                    <span>← →</span> or <span>◀ ▶</span> Move Center &nbsp;·&nbsp; <span>↑ ↓</span> or <span>▲ ▼</span> Stretch / Contract Width!<br>
+                    On mobile, use the on-screen <span>D-pad buttons</span> in the bottom corners.<br>
+                    Only the <span>two balls</span> are dangerous - the rope between them can safely cross over obstacles.<br>
+                    Some gates need a narrow rope, some need it wide enough to straddle a pillar. Stay ready!<br>
+                    Collect <span>coins</span> in the path. The track <span>levels up</span> and speed surges as you go!
+                </p>
+                <div class="btn-group">
+                    <button class="btn" id="btnStartGame">Play Game</button>
+                    <button class="btn" id="btnSettings">Settings</button>
+                    <button class="btn" id="btnCredits">Credits</button>
+                </div>
+            </div>
+
+            <div class="menu-screen interactive" id="screenSettings">
+                <div class="settings-panel">
+                    <h2 class="sub-title" style="font-size:1.5rem; margin-bottom:1.5rem; text-align:center;">Settings</h2>
+                    <div class="setting-row">
+                        <div class="setting-label">Sound FX</div>
+                        <div class="setting-control"><input type="checkbox" id="setSound" checked></div>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label">Ambient Music</div>
+                        <div class="setting-control"><input type="checkbox" id="setMusic" checked></div>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label">Particle Density</div>
+                        <div class="setting-control">
+                            <select id="setParticles">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label">Graphics Quality</div>
+                        <div class="setting-control">
+                            <select id="setGraphics">
+                                <option value="low">Performance</option>
+                                <option value="high" selected>Cinematic</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="setting-row">
+                        <div class="setting-label">Screen Shake</div>
+                        <div class="setting-control"><input type="checkbox" id="setShake" checked></div>
+                    </div>
+                    <div class="setting-row" style="margin-top: 2rem; margin-bottom: 0;">
+                        <button class="btn" id="btnResetData" style="font-size:0.85rem; padding:0.6rem 1rem; width:100%; border-color:rgba(239,68,68,0.4); background:rgba(239,68,68,0.05);">Reset Best Record</button>
+                    </div>
+                </div>
+                <div class="btn-group" style="margin-top: 1.5rem;">
+                    <button class="btn" id="btnSettingsBack">Back</button>
+                </div>
+            </div>
+
+            <div class="menu-screen interactive" id="screenCredits">
+                <div class="credits-container">
+                    <h3>The Weave</h3>
+                    <p style="margin-bottom: 1rem; font-style: italic;">Weaving Space & Harmony</p>
+                    <p>Designed & Programmed by <span>The Ultimate AI Artisan</span></p>
+                    <p>Engineered via <span>Web Audio & HTML5 Canvas</span></p>
+                    <p style="margin-top: 1rem; font-size: 0.9rem; color: #64748b;">Anxiety Edition: Adaptive Velocity Surges & Randomized Gate Arrays.</p>
+                </div>
+                <div class="btn-group" style="margin-top: 2rem;">
+                    <button class="btn" id="btnCreditsBack">Back</button>
+                </div>
+            </div>
+
+            <div class="menu-screen interactive" id="screenPause">
+                <h2 class="sub-title">Game Paused</h2>
+                <div class="btn-group">
+                    <button class="btn" id="btnResume">Resume</button>
+                    <button class="btn" id="btnPauseRestart">Restart</button>
+                    <button class="btn" id="btnPauseSettings">Settings</button>
+                    <button class="btn" id="btnMainMenu">Main Menu</button>
+                </div>
+            </div>
+
+            <div class="menu-screen interactive" id="screenGameOver">
+                <h2 class="sub-title" style="color:#ef4444; text-shadow: 0 0 12px rgba(239,68,68,0.5);">Thread Severed</h2>
+                <div class="credits-container" style="margin-bottom: 2rem;">
+                    <p>Coins Collected: <span id="goCoins">0</span></p>
+                    <p>Best Ever: <span id="goBest">0</span></p>
+                    <p>Run Time: <span id="goTime">00:00.00</span></p>
+                    <p>Total Deaths: <span id="goDeaths">0</span></p>
+                </div>
+                <div class="btn-group">
+                    <button class="btn" id="btnGameOverRetry">Retry</button>
+                    <button class="btn" id="btnGameOverMenu">Main Menu</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+                this.musicEnabled = true;
+                this.musicInterval = null;
+            }
+            init() {
+                if (this.ctx) return;
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.musicEnabled) this.startAmbientMusic();
+            }
+            toggleSound(val) { this.enabled = val; if(val) this.init(); }
+            toggleMusic(val) {
+                this.musicEnabled = val;
+                if (val) { this.init(); this.startAmbientMusic(); }
+                else { this.stopAmbientMusic(); }
+            }
+            play(type) {
+                if (!this.enabled || !this.ctx) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const now = this.ctx.currentTime;
+                switch (type) {
+                    case 'click': {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(500, now);
+                        osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+                        gain.gain.setValueAtTime(0.15, now);
+                        gain.gain.linearRampToValueAtTime(0, now + 0.1);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.1);
+                        break;
+                    }
+                    case 'hover': {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.setValueAtTime(300, now);
+                        osc.frequency.setValueAtTime(450, now + 0.03);
+                        gain.gain.setValueAtTime(0.04, now);
+                        gain.gain.linearRampToValueAtTime(0, now + 0.06);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.06);
+                        break;
+                    }
+                    case 'death': {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(180, now);
+                        osc.frequency.linearRampToValueAtTime(60, now + 0.4);
+                        gain.gain.setValueAtTime(0.3, now);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.4);
+                        this.playNoise(0.3, 0.4, 200);
+                        break;
+                    }
+                    case 'coin': {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(880, now);
+                        osc.frequency.setValueAtTime(1320, now + 0.08);
+                        gain.gain.setValueAtTime(0.12, now);
+                        gain.gain.linearRampToValueAtTime(0, now + 0.25);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.25);
+                        break;
+                    }
+                    case 'speedUp': {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(440, now);
+                        osc.frequency.exponentialRampToValueAtTime(880, now + 0.3);
+                        gain.gain.setValueAtTime(0.1, now);
+                        gain.gain.linearRampToValueAtTime(0, now + 0.3);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 0.3);
+                        break;
+                    }
+                }
+            }
+            playNoise(vol, duration, lowpassFreq) {
+                if(!this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * duration;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(lowpassFreq, this.ctx.currentTime);
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + duration);
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start();
+            }
+            startAmbientMusic() {
+                this.stopAmbientMusic();
+                if(!this.musicEnabled || !this.ctx) return;
+                let seq = 0;
+                const chords = [
+                    [146.83, 220.00, 293.66, 369.99],
+                    [164.81, 246.94, 329.63, 392.00],
+                    [130.81, 196.00, 261.63, 329.63],
+                    [110.07, 164.81, 220.00, 277.18]
+                ];
+                const playChordProgression = () => {
+                    if(!this.ctx || !this.musicEnabled) return;
+                    const now = this.ctx.currentTime;
+                    const currentChord = chords[seq % chords.length];
+                    currentChord.forEach((freq, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        gain.gain.setValueAtTime(0, now);
+                        gain.gain.linearRampToValueAtTime(0.015, now + 1.0 + idx * 0.1);
+                        gain.gain.linearRampToValueAtTime(0, now + 3.8);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 3.9);
+                    });
+                    seq++;
+                };
+                playChordProgression();
+                this.musicInterval = setInterval(playChordProgression, 4000);
+            }
+            stopAmbientMusic() {
+                if(this.musicInterval) {
+                    clearInterval(this.musicInterval);
+                    this.musicInterval = null;
+                }
+            }
+        }
+
+        const Snd = new SoundEngine();
+
+        class Particle {
+            constructor(x, y, color, speedX, speedY, size, maxLife, type = 'trail', text = '') {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.speedX = speedX;
+                this.speedY = speedY;
+                this.size = size;
+                this.maxLife = maxLife;
+                this.life = maxLife;
+                this.type = type;
+                this.text = text;
+            }
+            update(dt) {
+                this.x += this.speedX * dt * 60;
+                this.y += this.speedY * dt * 60;
+                this.life -= dt * 60;
+                if(this.type === 'ambient') {
+                    this.y += 0.2 * dt * 60;
+                }
+            }
+            draw(ctx, cameraY = 0) {
+                const drawY = this.y - cameraY;
+                const alpha = Math.max(0, this.life / this.maxLife);
+                ctx.save();
+                ctx.globalAlpha = alpha;
+                if(this.type === 'text') {
+                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = this.color;
+                    ctx.fillStyle = this.color;
+                    ctx.font = `700 ${this.size}px 'Segoe UI', sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.text, this.x, drawY);
+                    ctx.restore();
+                    return;
+                }
+                ctx.shadowBlur = this.type === 'ambient' ? 2 : 8;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, drawY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class Star {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h;
+                this.size = Math.random() * 1.5 + 0.5;
+                this.alpha = Math.random() * 0.6 + 0.2;
+                this.speed = Math.random() * 0.15 + 0.05;
+                this.twinkleSpeed = Math.random() * 0.02 + 0.005;
+                this.twinkleDir = Math.random() > 0.5 ? 1 : -1;
+            }
+            update(h, dt) {
+                this.y += this.speed * dt * 60;
+                if (this.y > h) {
+                    this.y = 0;
+                    this.x = Math.random() * window.innerWidth;
+                }
+                this.alpha += this.twinkleDir * this.twinkleSpeed;
+                if(this.alpha > 0.8 || this.alpha < 0.2) {
+                    this.twinkleDir *= -1;
+                }
+            }
+            draw(ctx) {
+                ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0, Math.min(1, this.alpha))})`;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        class Coin {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.r = 13;
+                this.pulseTime = Math.random() * 100;
+            }
+            update(dt) {
+                this.pulseTime += 0.08 * dt * 60;
+            }
+            draw(ctx, cameraY) {
+                const drawY = this.y - cameraY;
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#fbbf24';
+                
+                let glowSize = this.r + Math.sin(this.pulseTime) * 3;
+                let grad = ctx.createRadialGradient(this.x, drawY, 2, this.x, drawY, glowSize);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.4, '#fbbf24');
+                grad.addColorStop(1, 'transparent');
+                
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(this.x, drawY, glowSize, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.arc(this.x, drawY, this.r * 0.5, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                ctx.restore();
+            }
+            collidesWithCircle(cx, cy, cr) {
+                // Coins are only collected when a BALL actually touches them - the
+                // connecting rope passing over a coin no longer counts. This matches
+                // the same rule already used for obstacles: only the two circles at
+                // the ends of the rope are ever "solid" for collision purposes. A
+                // small forgiving pickup buffer (beyond the coin's drawn radius) keeps
+                // collection feeling fair now that the ball has to physically arrive,
+                // rather than the connecting rope sweeping over it.
+                const pickupR = this.r + 6;
+                let dx = cx - this.x;
+                let dy = cy - this.y;
+                return (dx * dx + dy * dy) < ((pickupR + cr) * (pickupR + cr));
+            }
+        }
+
+        class Obstacle {
+            constructor(data) {
+                this.type = data.type;
+                this.x = data.x;
+                this.y = data.y;
+                this.w = data.w || 0;
+                this.h = data.h || 0;
+                this.r = data.r || 0;
+                this.colorMode = data.colorMode || 'static';
+                this.color = data.color || '#3b82f6';
+                this.targetColor = this.color;
+                this.colorTimer = 0;
+                this.colorDuration = data.colorDuration || 120;
+                this.moveType = data.moveType || 'none';
+                this.startX = data.x;
+                this.startY = data.y;
+                this.rangeX = data.rangeX || 0;
+                this.rangeY = data.rangeY || 0;
+                this.speed = data.speed || 0.02;
+                this.time = Math.random() * 100;
+                this.rotSpeed = data.rotSpeed || 0;
+                this.angle = data.angle || 0;
+            }
+            update(dt) {
+                this.time += this.speed * dt * 60;
+                this.angle += this.rotSpeed * dt * 60;
+                if(this.moveType === 'sineX') {
+                    this.x = this.startX + Math.sin(this.time) * this.rangeX;
+                } else if(this.moveType === 'sineY') {
+                    this.y = this.startY + Math.sin(this.time) * this.rangeY;
+                } else if(this.moveType === 'patrolX') {
+                    let cycle = (this.time) % 2;
+                    let disp = cycle > 1 ? 2 - cycle : cycle;
+                    this.x = this.startX + disp * this.rangeX;
+                }
+                if(this.colorMode === 'cycle') {
+                    this.colorTimer += dt * 60;
+                    if(this.colorTimer >= this.colorDuration) {
+                        this.colorTimer = 0;
+                        this.targetColor = this.targetColor === '#ffffff' ? '#a855f7' : '#ffffff';
+                    }
+                    this.color = this.targetColor;
+                } else if(this.colorMode === 'pulse') {
+                    let brightness = Math.floor(120 + Math.sin(this.time * 2) * 40);
+                    this.color = `rgb(${brightness}, ${Math.floor(brightness*0.6)}, 240)`;
+                }
+            }
+            draw(ctx, cameraY) {
+                const drawY = this.y - cameraY;
+                ctx.save();
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.fillStyle = this.color;
+                ctx.strokeStyle = this.color;
+                ctx.lineWidth = 3;
+                if(this.type === 'wall' || this.type === 'box') {
+                    ctx.fillRect(this.x, drawY, this.w, this.h);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.strokeRect(this.x, drawY, this.w, this.h);
+                } else if(this.type === 'circle') {
+                    ctx.beginPath();
+                    ctx.arc(this.x, drawY, this.r, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if(this.type === 'rotatingBar') {
+                    ctx.translate(this.x, drawY);
+                    ctx.rotate(this.angle);
+                    ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+                    ctx.restore();
+                    return;
+                } else if(this.type === 'laser') {
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, drawY);
+                    ctx.lineTo(this.x + this.w, drawY + this.h);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+            collidesWithCircle(cx, cy, cr) {
+                if (this.type === 'wall' || this.type === 'box') {
+                    let closestX = Math.max(this.x, Math.min(cx, this.x + this.w));
+                    let closestY = Math.max(this.y, Math.min(cy, this.y + this.h));
+                    let distanceX = cx - closestX;
+                    let distanceY = cy - closestY;
+                    return (distanceX * distanceX + distanceY * distanceY) < (cr * cr);
+                } else if (this.type === 'circle') {
+                    let dx = cx - this.x;
+                    let dy = cy - this.y;
+                    return (dx * dx + dy * dy) < ((this.r + cr) * (this.r + cr));
+                } else if (this.type === 'rotatingBar') {
+                    let relX = cx - this.x;
+                    let relY = cy - this.y;
+                    let cos = Math.cos(-this.angle);
+                    let sin = Math.sin(-this.angle);
+                    let rotX = relX * cos - relY * sin;
+                    let rotY = relX * sin + relY * cos;
+                    let closestX = Math.max(-this.w/2, Math.min(rotX, this.w/2));
+                    let closestY = Math.max(-this.h/2, Math.min(rotY, this.h/2));
+                    let dx = rotX - closestX;
+                    let dy = rotY - closestY;
+                    return (dx * dx + dy * dy) < (cr * cr);
+                } else if (this.type === 'laser') {
+                    let x1 = this.x, y1 = this.y, x2 = this.x + this.w, y2 = this.y + this.h;
+                    let l2 = (x1-x2)*(x1-x2) + (y1-y2)*(y1-y2);
+                    if (l2 === 0) return false;
+                    let t = ((cx - x1) * (x2 - x1) + (cy - y1) * (y2 - y1)) / l2;
+                    t = Math.max(0, Math.min(1, t));
+                    let projectionX = x1 + t * (x2 - x1);
+                    let projectionY = y1 + t * (y2 - y1);
+                    let dx = cx - projectionX;
+                    let dy = cy - projectionY;
+                    return (dx*dx + dy*dy) < (cr*cr);
+                }
+                return false;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.width = 540;
+                this.height = 960;
+                this.canvas.width = this.width;
+                this.canvas.height = this.height;
+                this.gameState = 'menu'; 
+                
+                this.score = 0;
+                this.bestScore = 0;
+                this.deaths = 0;
+                this.totalPlayTime = 0;
+                this.levelTimer = 0;
+                this.levelStartTime = 0;
+                
+                // Smooth speed ramp state (see update())
+                this.speedMultiplier = 1.0;
+                this.lastSpeedMilestone = 0;
+                this.level = 1;
+                
+                this.shakeAmount = 0;
+                this.shakeEnabled = true;
+                this.particleDensity = 'medium';
+                this.graphicsQuality = 'high';
+                
+                this.p1 = { x: 200, y: 800, r: 14, color: '#ffffff', trail: [] };
+                this.p2 = { x: 340, y: 800, r: 14, color: '#a855f7', trail: [] };
+                this.colorCycleTime = 0;
+                
+                // Every-minute UI theme cycle: shifts the whole game's color palette
+                // (canvas + HUD + D-pad buttons) via a CSS hue-rotate, purely cosmetic.
+                this.themeTimer = 0;
+                this.themeHue = 0;
+                
+                this.ropeSpread = 140;
+                this.minRopeSpread = 60;
+                this.maxRopeSpread = 280;
+                
+                this.targetCenter = this.width / 2;
+                this.centerVel = 0;
+                this.currentCenter = this.width / 2;
+                
+                this.cameraY = 600;
+                this.targetCameraY = 600;
+                
+                this.obstacles = [];
+                this.coins = [];
+                this.generationY = 400; 
+                this.coinTimer = 0; 
+                
+                this.particles = [];
+                this.stars = [];
+                this.input = { left: false, right: false, up: false, down: false };
+                this.lastTime = 0;
+                
+                this.initStars();
+                this.loadProgress();
+                this.bindEvents();
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+                requestAnimationFrame((t) => this.loop(t));
+            }
+            initStars() {
+                this.stars = [];
+                for(let i=0; i<80; i++) {
+                    this.stars.push(new Star(this.width, this.height));
+                }
+            }
+            resizeCanvas() {
+                const container = document.getElementById('game-container');
+                const cw = container.clientWidth;
+                const ch = container.clientHeight;
+                const ratio = this.width / this.height;
+                let newW = cw;
+                let newH = cw / ratio;
+                if(newH > ch) {
+                    newH = ch;
+                    newW = ch * ratio;
+                }
+                this.canvas.style.width = `${newW}px`;
+                this.canvas.style.height = `${newH}px`;
+            }
+            loadProgress() {
+                try {
+                    const saved = localStorage.getItem('the_weave_endless_save');
+                    if(saved) {
+                        const data = JSON.parse(saved);
+                        this.bestScore = data.bestScore || 0;
+                        this.deaths = data.deaths || 0;
+                        this.totalPlayTime = data.totalPlayTime || 0;
+                        if(data.settings) {
+                            document.getElementById('setSound').checked = data.settings.sound !== false;
+                            document.getElementById('setMusic').checked = data.settings.music !== false;
+                            document.getElementById('setShake').checked = data.settings.shake !== false;
+                            document.getElementById('setParticles').value = data.settings.particles || 'medium';
+                            document.getElementById('setGraphics').value = data.settings.graphics || 'high';
+                            Snd.toggleSound(data.settings.sound !== false);
+                            Snd.toggleMusic(data.settings.music !== false);
+                            this.shakeEnabled = data.settings.shake !== false;
+                            this.particleDensity = data.settings.particles || 'medium';
+                            this.graphicsQuality = data.settings.graphics || 'high';
+                        }
+                    }
+                    document.getElementById('hudBestScore').innerText = `BEST: ${this.bestScore}`;
+                } catch(e) { console.error("Error loading save data", e); }
+            }
+            saveProgress() {
+                try {
+                    const data = {
+                        bestScore: this.bestScore,
+                        deaths: this.deaths,
+                        totalPlayTime: this.totalPlayTime,
+                        settings: {
+                            sound: document.getElementById('setSound').checked,
+                            music: document.getElementById('setMusic').checked,
+                            shake: this.shakeEnabled,
+                            particles: this.particleDensity,
+                            graphics: this.graphicsQuality
+                        }
+                    };
+                    localStorage.setItem('the_weave_endless_save', JSON.stringify(data));
+                } catch(e) { console.error("Error saving data", e); }
+            }
+            resetSaveData() {
+                if(confirm("Are you sure you want to erase your best record?")) {
+                    this.bestScore = 0;
+                    document.getElementById('hudBestScore').innerText = `BEST: 0`;
+                    this.saveProgress();
+                }
+            }
+            showScreen(screenId) {
+                document.querySelectorAll('.menu-screen').forEach(s => s.classList.remove('active'));
+                const s = document.getElementById(screenId);
+                if(s) s.classList.add('active');
+                if(screenId === 'screenMain') {
+                    document.getElementById('hud').classList.remove('active');
+                    document.getElementById('mobileControls').style.display = 'none';
+                }
+            }
+            bindEvents() {
+                const btnClick = (id, act) => {
+                    const el = document.getElementById(id);
+                    if(el) {
+                        el.addEventListener('click', () => { Snd.play('click'); act(); });
+                        el.addEventListener('mouseenter', () => Snd.play('hover'));
+                    }
+                };
+                btnClick('btnStartGame', () => { this.startGameplay(); });
+                btnClick('btnSettings', () => this.showScreen('screenSettings'));
+                btnClick('btnCredits', () => this.showScreen('screenCredits'));
+                btnClick('btnSettingsBack', () => { this.saveProgress(); this.showScreen('screenMain'); });
+                btnClick('btnCreditsBack', () => this.showScreen('screenMain'));
+                btnClick('btnResume', () => { this.gameState = 'play'; document.getElementById('screenPause').classList.remove('active'); });
+                btnClick('btnPauseRestart', () => { this.startGameplay(); });
+                btnClick('btnPauseSettings', () => { this.showScreen('screenSettings'); });
+                btnClick('btnMainMenu', () => { this.gameState = 'menu'; this.showScreen('screenMain'); });
+                btnClick('btnGameOverRetry', () => { this.startGameplay(); });
+                btnClick('btnGameOverMenu', () => { this.gameState = 'menu'; this.showScreen('screenMain'); });
+                btnClick('btnHudPause', () => { if(this.gameState === 'play') { this.gameState = 'pause'; this.showScreen('screenPause'); } });
+                btnClick('btnHudRestart', () => this.startGameplay());
+                btnClick('btnHudSettings', () => { this.gameState = 'pause'; this.showScreen('screenSettings'); });
+                btnClick('btnHudFullscreen', () => this.toggleFullscreen());
+                btnClick('btnResetData', () => this.resetSaveData());
+                
+                window.addEventListener('keydown', (e) => {
+                    if(this.gameState !== 'play') return;
+                    if(e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.input.left = true;
+                    if(e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.input.right = true;
+                    if(e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.input.up = true;
+                    if(e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.input.down = true;
+                    if(e.key === 'Escape') { this.gameState = 'pause'; this.showScreen('screenPause'); }
+                });
+                window.addEventListener('keyup', (e) => {
+                    if(e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') this.input.left = false;
+                    if(e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.input.right = false;
+                    if(e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') this.input.up = false;
+                    if(e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') this.input.down = false;
+                });
+                
+                // Visible on-screen D-pad buttons (Android/touch friendly). Each button
+                // maps directly to one input flag and supports multi-touch, mouse, and
+                // stylus via Pointer Events, with the flag cleared on release/leave/cancel
+                // so a dragged-off finger never leaves a direction stuck "on".
+                const setupDpadButton = (id, key) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    const setActive = (active) => {
+                        this.input[key] = active;
+                        el.classList.toggle('pressed', active);
+                    };
+                    el.addEventListener('pointerdown', (e) => { e.preventDefault(); el.setPointerCapture(e.pointerId); setActive(true); });
+                    el.addEventListener('pointerup', (e) => { e.preventDefault(); setActive(false); });
+                    el.addEventListener('pointercancel', () => setActive(false));
+                    el.addEventListener('pointerleave', () => setActive(false));
+                    el.addEventListener('contextmenu', (e) => e.preventDefault());
+                };
+                setupDpadButton('btnTouchLeft', 'left');
+                setupDpadButton('btnTouchRight', 'right');
+                setupDpadButton('btnTouchUp', 'up');
+                setupDpadButton('btnTouchDown', 'down');
+                
+                document.getElementById('setSound').addEventListener('change', (e) => { Snd.toggleSound(e.target.checked); this.saveProgress(); });
+                document.getElementById('setMusic').addEventListener('change', (e) => { Snd.toggleMusic(e.target.checked); this.saveProgress(); });
+                document.getElementById('setShake').addEventListener('change', (e) => { this.shakeEnabled = e.target.checked; this.saveProgress(); });
+                document.getElementById('setParticles').addEventListener('change', (e) => { this.particleDensity = e.target.value; this.saveProgress(); });
+                document.getElementById('setGraphics').addEventListener('change', (e) => { this.graphicsQuality = e.target.value; this.saveProgress(); });
+            }
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {});
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+            startGameplay() {
+                this.score = 0;
+                this.speedMultiplier = 1.0;
+                this.lastSpeedMilestone = 0;
+                this.level = 1;
+                document.getElementById('hudLevel').innerText = `LEVEL 1`;
+                document.getElementById('hudScore').innerText = `COINS: 0`;
+                document.getElementById('hudBestScore').innerText = `BEST: ${this.bestScore}`;
+                document.getElementById('hudDeaths').innerText = `DEATHS: ${this.deaths}`;
+                document.getElementById('hudSpeedMultiplier').innerText = `SPEED: 1.00x`;
+                document.getElementById('hud').classList.add('active');
+                document.getElementById('mobileControls').style.display = 'block';
+                document.querySelectorAll('.menu-screen').forEach(s => s.classList.remove('active'));
+                
+                this.p1.y = 800; this.p2.y = 800;
+                this.currentCenter = this.width / 2;
+                this.targetCenter = this.width / 2;
+                this.centerVel = 0;
+                this.ropeSpread = 140;
+                this.p1.x = this.currentCenter - this.ropeSpread/2;
+                this.p2.x = this.currentCenter + this.ropeSpread/2;
+                this.p1.trail = []; this.p2.trail = [];
+                this.colorCycleTime = 0;
+                this.themeTimer = 0;
+                this.themeHue = 0;
+                document.getElementById('game-container').style.filter = 'hue-rotate(0deg)';
+                
+                this.cameraY = 600;
+                this.targetCameraY = 600;
+                
+                this.obstacles = [];
+                this.coins = [];
+                this.generationY = 400; 
+                this.coinTimer = 0;
+                
+                for (let i = 0; i < 5; i++) {
+                    this.generateNextChunk();
+                }
+                
+                this.particles = [];
+                this.input.left = false;
+                this.input.right = false;
+                this.input.up = false;
+                this.input.down = false;
+                this.levelStartTime = performance.now();
+                this.levelTimer = 0;
+                this.gameState = 'play';
+                Snd.init();
+                this.saveProgress();
+            }
+            generateNextChunk() {
+                const w = this.width;
+                const y = this.generationY;
+                
+                // Gradual difficulty ramp: 0 at the start of a run, climbing smoothly
+                // to 1 over the first 4 minutes and then holding steady. Used below to
+                // slowly tighten gaps and speed up moving hazards over time, on top of
+                // the separate rope-speed ramp in update().
+                const diff = Math.min(1, this.levelTimer / 240);
+                
+                // Endless intensity scaling, separate from `diff` above. `diff` stays
+                // capped at 1 forever because it drives the safe-gap math below and
+                // that safety proof only holds at diff<=1. `hyperDiff` keeps climbing
+                // slowly with no cap (based on the endless LEVEL counter) and is only
+                // ever applied to cosmetic/motion speed knobs (oscillation & rotation
+                // speed) - never to gap sizes - so runs keep getting more frantic the
+                // longer a skilled player survives, without ever becoming unfair.
+                // Bug fix: hyperDiff used to grow with NO cap (1 + (level-1)*0.06),
+                // meaning a long run at level 40-50+ would make sine/spin/roaming
+                // hazards move 3-4x faster than intended - fast enough that no human
+                // reaction time could track them, which is the "block moving too fast,
+                // I can't go" bug being reported. It now eases toward a firm ceiling
+                // (1.6x) instead of climbing forever, so late-game stays hard but
+                // always humanly reactable.
+                const hyperDiff = 1 + Math.min(0.6, Math.max(0, this.level - 1) * 0.04);
+                
+                // Bug fix: the old logic picked wall/box widths (and oscillation ranges)
+                // fully independently, which meant the two sides could sometimes add up
+                // to MORE than the track width - closing the gap completely and creating
+                // an obstacle that was mathematically impossible to dodge. Everything
+                // below is now budgeted against a guaranteed-safe minimum gap, which
+                // itself gradually tightens (but never below a safe floor) as diff rises.
+                //
+                // Bug fix #2 (this pass): at max difficulty the old formula bottomed out
+                // at 90px, only 2px above the bare mathematical minimum a fully-contracted
+                // rope can fit through (minRopeSpread 60 + both ball radii 28 = 88px).
+                // 2px of "margin" isn't really passable in live gameplay once you factor
+                // in the rope's own smoothing lag - it LOOKED fittable but wasn't
+                // reliably fittable, which is exactly the "box too small even at minimum"
+                // bug being reported. absMinGap is the true physical minimum; safeGap now
+                // always keeps a real ~14px cushion above it, even at max difficulty.
+                const ballR = this.p1.r;
+                const absMinGap = this.minRopeSpread + ballR * 2;
+                const safeGap = Math.max(absMinGap + 14, (this.minRopeSpread + 45) - diff * 15);
+                
+                const cStatic = '#2563eb';
+                const cDanger = '#ef4444';
+                const cPurp = '#a855f7';
+                
+                // Level-weighted pattern selection: as the endless LEVEL counter climbs,
+                // the easy static gate shows up less, and the precision/squeeze patterns
+                // that demand exact positioning show up more - so "upcoming" chunks keep
+                // getting meaningfully harder, not just faster. lvlFactor eases from 0
+                // (level 1) up to 1 (level 16+) and never exceeds it, so late-game stays
+                // hard-but-fair instead of spiraling into an impossible wall of hazards.
+                const lvlFactor = Math.min(1, Math.max(0, this.level - 1) / 15);
+                const canSqueeze = diff > 0.2;
+                const canPrecision = diff > 0.15;
+                
+                const weights = [
+                    { key: 'gates',      w: 20 * (1 - lvlFactor * 0.65) },
+                    { key: 'sine',       w: 16 },
+                    { key: 'spin',       w: 14 * (1 + lvlFactor * 0.3) },
+                    { key: 'straddle',   w: 14 },
+                    { key: 'squeeze',    w: canSqueeze ? 12 * (1 + lvlFactor * 0.9) : 0 },
+                    { key: 'precision',  w: canPrecision ? 13 * (1 + lvlFactor * 1.1) : 0 },
+                    { key: 'centerOrb',  w: 14 * (1 + lvlFactor * 0.5) },
+                    { key: 'roaming',    w: 8 * (1 + lvlFactor * 0.4) }
+                ];
+                const totalWeight = weights.reduce((s, p) => s + p.w, 0);
+                let pick = Math.random() * totalWeight;
+                let chosen = weights[weights.length - 1].key;
+                for (const p of weights) {
+                    if (pick < p.w) { chosen = p.key; break; }
+                    pick -= p.w;
+                }
+                
+                if (chosen === 'gates') {
+                    // Randomized spatial gates (static walls)
+                    const maxCombined = w - safeGap;
+                    const leftBoundaryRandomWidth = 60 + Math.random() * Math.max(0, Math.min(160, maxCombined - 120));
+                    // Defensive final clamp: whatever the random right width comes out to,
+                    // never let it eat into the reserved safeGap - this guarantees the
+                    // ACTUAL gap (w - left - right) is always >= safeGap, closing off any
+                    // edge case in the randomization above.
+                    const rightBoundaryRandomWidth = Math.min(
+                        Math.max(60, Math.min(220, maxCombined - leftBoundaryRandomWidth)),
+                        w - leftBoundaryRandomWidth - safeGap
+                    );
+                    this.obstacles.push(new Obstacle({type:'wall', x:0, y:y, w:leftBoundaryRandomWidth, h:45, color:cStatic}));
+                    this.obstacles.push(new Obstacle({type:'wall', x:w - rightBoundaryRandomWidth, y:y, w:rightBoundaryRandomWidth, h:45, color:cStatic}));
+                    this.spawnGapCoin(leftBoundaryRandomWidth, w - rightBoundaryRandomWidth, y);
+                } else if (chosen === 'sine') {
+                    // Sinusoidal sliding blocks - range/speed creep up with diff, but
+                    // range is still reserved space, so even at the worst point of the
+                    // oscillation the gap can't fully close.
+                    const range = (20 + Math.random() * 35) * (1 + diff * 0.3);
+                    const speed = Math.min(0.075, (0.02 + Math.random() * 0.03) * (1 + diff * 0.4) * hyperDiff);
+                    const maxCombined = w - safeGap - range * 2;
+                    const leftBoundaryRandomWidth = 50 + Math.random() * Math.max(0, Math.min(100, maxCombined - 100));
+                    // Same defensive clamp as the gates pattern above: never let the
+                    // right block's random width eat into the space already reserved
+                    // for safeGap + both oscillation ranges.
+                    const rightBoundaryRandomWidth = Math.min(
+                        Math.max(50, Math.min(150, maxCombined - leftBoundaryRandomWidth)),
+                        w - leftBoundaryRandomWidth - safeGap - range * 2
+                    );
+                    this.obstacles.push(new Obstacle({type:'box', x:0, y:y, w:leftBoundaryRandomWidth, h:50, moveType:'sineX', rangeX:range, speed:speed, color:cDanger}));
+                    this.obstacles.push(new Obstacle({type:'box', x:w - rightBoundaryRandomWidth, y:y, w:rightBoundaryRandomWidth, h:50, moveType:'sineX', rangeX:-range, speed:speed, color:cDanger}));
+                    this.spawnGapCoin(leftBoundaryRandomWidth + range, w - rightBoundaryRandomWidth - range, y);
+                } else if (chosen === 'spin') {
+                    // Spinning hazards - spin faster with diff, but arms are kept at a
+                    // fixed safe distance from the center regardless of randomization,
+                    // so the swing radius never reaches the middle.
+                    const rot = Math.min(0.08, (0.02 + Math.random() * 0.03) * (1 + diff * 0.5) * hyperDiff);
+                    const armLeftX = 90 + Math.random() * 60;
+                    const armRightX = w - (90 + Math.random() * 60);
+                    this.obstacles.push(new Obstacle({type:'rotatingBar', x:armLeftX, y:y, w:90, h:25, rotSpeed:rot, color:cPurp}));
+                    this.obstacles.push(new Obstacle({type:'rotatingBar', x:armRightX, y:y, w:90, h:25, rotSpeed:-rot, color:cPurp}));
+                    this.spawnGapCoin(armLeftX + 65, armRightX - 65, y);
+                } else if (chosen === 'straddle') {
+                    // Straddle pillar - a single hazard sits dead-center on the track.
+                    // The only way through is to actively STRETCH the rope wide enough
+                    // that both balls pass on either side of it (contracting or just
+                    // sliding left/right will not save you here). Grows slightly with
+                    // diff, but is always capped so it stays safely under maxRopeSpread.
+                    const pillarR = 55 + Math.random() * 25 + diff * 10;
+                    const ballR = this.p1.r;
+                    const requiredSpread = pillarR * 2 + ballR * 2 + 20;
+                    this.obstacles.push(new Obstacle({type:'circle', x:w/2, y:y, r:pillarR, color:'#f97316'}));
+                    // Coins on either side reward (and confirm) a clean straddle.
+                    if (this.coinTimer <= 0) {
+                        this.coins.push(new Coin(w/2 - requiredSpread/2 + 5, y - 20));
+                        this.coins.push(new Coin(w/2 + requiredSpread/2 - 5, y - 20));
+                        this.coinTimer = 3.0;
+                    }
+                } else if (chosen === 'squeeze') {
+                    // Narrow squeeze - twin pillars planted close together in the
+                    // middle of the track. This is the mirror image of the wide
+                    // straddle pattern above: here the rope must be CONTRACTED down
+                    // to fit through the gap between them (going wide just slams a
+                    // ball straight into one of the pillars). Unlocks only once the
+                    // run has some difficulty behind it, so new players meet the
+                    // wide-straddle pattern first and this twist later.
+                    const gap = Math.max(absMinGap + 14, safeGap + 8 - diff * 6);
+                    const pillarR = 42 + Math.random() * 14;
+                    const wobble = (Math.random() - 0.5) * 70;
+                    const centerX = w / 2 + wobble;
+                    this.obstacles.push(new Obstacle({type:'circle', x: centerX - gap/2 - pillarR, y:y, r:pillarR, color:'#22d3ee'}));
+                    this.obstacles.push(new Obstacle({type:'circle', x: centerX + gap/2 + pillarR, y:y, r:pillarR, color:'#22d3ee'}));
+                    if (this.coinTimer <= 0) {
+                        this.coins.push(new Coin(centerX, y - 20));
+                        this.coinTimer = 3.0;
+                    }
+                } else if (chosen === 'precision') {
+                    // Precision middle gap - a single tight gate whose gap is randomly
+                    // positioned ANYWHERE across the track (not mirrored/symmetric like
+                    // the regular gate), and is sized just wide enough for both balls to
+                    // fit if - and only if - you both slide to the exact spot AND size
+                    // the rope exactly right. This is the hardest of the "gap" family:
+                    // there is zero slack once diff is high, so both moving and stretching
+                    // need to land precisely rather than roughly.
+                    const gapW = Math.max(absMinGap + 14, safeGap + 6 - diff * 8);
+                    const margin = 65;
+                    const gapMaxX = Math.max(margin + 10, w - margin - gapW);
+                    const gapX = margin + Math.random() * Math.max(10, gapMaxX - margin);
+                    this.obstacles.push(new Obstacle({type:'wall', x:0, y:y, w:gapX, h:48, color:'#facc15'}));
+                    this.obstacles.push(new Obstacle({type:'wall', x:gapX + gapW, y:y, w: w - (gapX + gapW), h:48, color:'#facc15'}));
+                    this.spawnGapCoin(gapX, gapX + gapW, y);
+                } else if (chosen === 'centerOrb') {
+                    // Center orb dodge - a single round hazard parked off-center in
+                    // the track, unlike the paired/symmetric obstacles above. There is
+                    // always a fully clear side to slide the WHOLE rope into (never
+                    // split down the middle like the straddle/squeeze patterns), so
+                    // this is pure move-left/move-right skill rather than stretching.
+                    // Which side stays open is randomized every time it appears.
+                    const orbR = 45 + Math.random() * 35 + diff * 15;
+                    const margin = safeGap;
+                    const openLeft = Math.random() < 0.5;
+                    let orbX;
+                    if (openLeft) {
+                        // Orb sits in the right portion of the track - left stays open.
+                        const minOrbX = w * 0.45;
+                        const maxOrbX = Math.max(minOrbX, w - margin - orbR);
+                        orbX = minOrbX + Math.random() * (maxOrbX - minOrbX);
+                    } else {
+                        // Orb sits in the left portion of the track - right stays open.
+                        const maxOrbX = w * 0.55;
+                        const minOrbX = Math.min(maxOrbX, margin + orbR);
+                        orbX = minOrbX + Math.random() * (maxOrbX - minOrbX);
+                    }
+                    this.obstacles.push(new Obstacle({type:'circle', x:orbX, y:y, r:orbR, color:'#38bdf8'}));
+                    // Coin sits on the guaranteed-open side, confirming the safe route.
+                    const coinX = openLeft ? Math.max(40, orbX - orbR - 40) : Math.min(w - 40, orbX + orbR + 40);
+                    if (this.coinTimer <= 0) {
+                        this.coins.push(new Coin(coinX, y - 20));
+                        this.coinTimer = 3.0;
+                    }
+                } else {
+                    // Roaming middle hazard - unlike the other patterns, this single
+                    // block doesn't come from a side, it drifts back and forth through
+                    // the MIDDLE of the track at random. It gets wider (harder to
+                    // dodge) as diff rises, but its patrol range is always kept inside
+                    // a safe margin, so there's always at least one side with room -
+                    // never an impossible block.
+                    const margin = safeGap;
+                    const hazW = 150 + diff * 70 + Math.random() * 30;
+                    const patrolRange = Math.max(20, (w - hazW) - margin * 2);
+                    const hazSpeed = Math.min(0.045, (0.010 + Math.random() * 0.012) * (1 + diff * 0.5) * hyperDiff);
+                    this.obstacles.push(new Obstacle({
+                        type:'box', x: margin, y:y, w:hazW, h:60,
+                        moveType:'patrolX', rangeX: patrolRange, speed: hazSpeed,
+                        color: '#ec4899'
+                    }));
+                }
+                
+                // Chunk spacing tightens slightly (and endlessly, within a safe floor)
+                // as the run's LEVEL climbs, so higher levels feel like a faster,
+                // denser gauntlet rather than just a raw speed increase.
+                const spacing = Math.max(260, 360 - Math.max(0, this.level - 1) * 4);
+                this.generationY -= spacing;
+            }
+            spawnGapCoin(gapStart, gapEnd, y) {
+                // Places the coin in the middle of the ACTUAL safe gap for this chunk,
+                // instead of the old fixed screen-center position, which could land the
+                // coin inside a wall on asymmetric layouts.
+                if (this.coinTimer <= 0 && gapEnd > gapStart) {
+                    this.coins.push(new Coin((gapStart + gapEnd) / 2, y - 20));
+                }
+            }
+            handleDeath() {
+                this.deaths++;
+                this.shakeAmount = this.shakeEnabled ? 32 : 0;
+                Snd.play('death');
+                this.triggerExplosion(this.p1.x, this.p1.y, this.p1.color);
+                this.triggerExplosion(this.p2.x, this.p2.y, this.p2.color);
+                this.gameState = 'dying';
+                this.transitionTimer = 0;
+                this.saveProgress();
+            }
+            showGameOver() {
+                this.gameState = 'gameover';
+                document.getElementById('goCoins').innerText = this.score;
+                document.getElementById('goBest').innerText = this.bestScore;
+                document.getElementById('goTime').innerText = this.formatTime(this.levelTimer);
+                document.getElementById('goDeaths').innerText = this.deaths;
+                document.getElementById('hud').classList.remove('active');
+                document.getElementById('mobileControls').style.display = 'none';
+                this.showScreen('screenGameOver');
+            }
+            triggerExplosion(x, y, col) {
+                let amt = this.particleDensity === 'high' ? 60 : (this.particleDensity === 'medium' ? 35 : 15);
+                for(let i=0; i<amt; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = Math.random() * 6 + 2;
+                    this.particles.push(new Particle(
+                        x, y, col,
+                        Math.cos(angle)*speed, Math.sin(angle)*speed,
+                        Math.random()*4 + 2, Math.random()*40 + 30, 'explosion'
+                    ));
+                }
+            }
+            triggerCoinCollectionParticles(x, y) {
+                for(let i=0; i<15; i++) {
+                    let angle = Math.random() * Math.PI * 2;
+                    let speed = Math.random() * 4 + 1;
+                    this.particles.push(new Particle(
+                        x, y, '#fbbf24',
+                        Math.cos(angle)*speed, Math.sin(angle)*speed,
+                        Math.random()*3 + 1.5, Math.random()*30 + 15, 'coinSpark'
+                    ));
+                }
+                this.particles.push(new Particle(
+                    x, y, '#fde68a', 0, -1.2, 20, 40, 'text', '+1'
+                ));
+            }
+            spawnAmbientParticles() {
+                let chance = this.particleDensity === 'high' ? 0.2 : (this.particleDensity === 'medium' ? 0.1 : 0.03);
+                if(Math.random() < chance) {
+                    this.particles.push(new Particle(
+                        Math.random()*this.width, this.cameraY - 50, 'rgba(168,85,247,0.4)',
+                        (Math.random()-0.5)*0.5, Math.random()*0.5 + 0.2,
+                        Math.random()*2 + 1, Math.random()*150 + 100, 'ambient'
+                    ));
+                }
+            }
+            formatTime(seconds) {
+                let m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                let s = Math.floor(seconds % 60).toString().padStart(2, '0');
+                let ms = Math.floor((seconds % 1) * 100).toString().padStart(2, '0');
+                return `${m}:${s}.${ms}`;
+            }
+            loop(timestamp) {
+                if(!this.lastTime) this.lastTime = timestamp;
+                let dt = (timestamp - this.lastTime) / 1000;
+                if(dt > 0.1) dt = 0.1;
+                this.lastTime = timestamp;
+                this.update(dt);
+                this.draw();
+                requestAnimationFrame((t) => this.loop(t));
+            }
+            update(dt) {
+                this.totalPlayTime += dt;
+                for(let star of this.stars) {
+                    star.update(this.height, dt);
+                }
+                
+                if(this.gameState === 'play') {
+                    this.levelTimer = (performance.now() - this.levelStartTime) / 1000;
+                    document.getElementById('hudTimer').innerText = this.formatTime(this.levelTimer);
+                    
+                    // Smooth, continuous difficulty ramp - speed creeps up every single
+                    // second instead of jumping +0.35x in one sudden spike every 2
+                    // minutes. Same long-run growth rate, but it now feels gradual.
+                    this.speedMultiplier = 1 + this.levelTimer * 0.0035;
+                    document.getElementById('hudSpeedMultiplier').innerText = `SPEED: ${this.speedMultiplier.toFixed(2)}x`;
+                    const milestone = Math.floor((this.speedMultiplier - 1) / 0.5);
+                    if (milestone > this.lastSpeedMilestone) {
+                        this.lastSpeedMilestone = milestone;
+                        Snd.play('speedUp');
+                        this.shakeAmount = this.shakeEnabled ? 12 : 0;
+                    }
+                    
+                    // Endless LEVEL system - climbs forever (every 18s of survival),
+                    // independent of the 0-1 "diff" curve used for obstacle tuning.
+                    // Gives players a clear, escalating sense of progress and unlocks
+                    // tougher obstacle patterns in generateNextChunk() as it climbs.
+                    const newLevel = 1 + Math.floor(this.levelTimer / 18);
+                    if (newLevel > this.level) {
+                        this.level = newLevel;
+                        document.getElementById('hudLevel').innerText = `LEVEL ${this.level}`;
+                        Snd.play('speedUp');
+                        this.shakeAmount = this.shakeEnabled ? 10 : 0;
+                        this.particles.push(new Particle(
+                            this.width / 2, this.p1.y - 120, '#34d399', 0, -0.4, 34, 70, 'text', `LEVEL ${this.level}`
+                        ));
+                    }
+                    
+                    if (this.coinTimer > 0) {
+                        this.coinTimer -= dt;
+                    }
+                    
+                    let sideAcc = 0.65 * dt * 60;
+                    let friction = 0.88;
+                    if (this.input.left) this.centerVel -= sideAcc;
+                    if (this.input.right) this.centerVel += sideAcc;
+                    this.centerVel *= friction;
+                    this.targetCenter += this.centerVel * dt * 60;
+                    
+                    let bound = 40 + this.ropeSpread/2;
+                    if(this.targetCenter < bound) { this.targetCenter = bound; this.centerVel = 0; }
+                    if(this.targetCenter > this.width - bound) { this.targetCenter = this.width - bound; this.centerVel = 0; }
+                    this.currentCenter += (this.targetCenter - this.currentCenter) * 0.15 * dt * 60;
+                    
+                    // Size control handling (Rope remains functional, perfectly straight line vector design)
+                    let stretchRate = 4.5 * dt * 60;
+                    if (this.input.up) this.ropeSpread += stretchRate;
+                    if (this.input.down) this.ropeSpread -= stretchRate;
+                    this.ropeSpread = Math.max(this.minRopeSpread, Math.min(this.maxRopeSpread, this.ropeSpread));
+                    
+                    // Living color - the two balls continuously cycle through a
+                    // shifting rainbow (180 degrees apart so they always contrast),
+                    // instead of staying a fixed white/purple for the whole run.
+                    this.colorCycleTime += dt;
+                    const hue = (this.colorCycleTime * 45) % 360;
+                    this.p1.color = `hsl(${hue.toFixed(0)}, 85%, 65%)`;
+                    this.p2.color = `hsl(${((hue + 180) % 360).toFixed(0)}, 85%, 65%)`;
+                    
+                    // Every-minute theme shift - the ENTIRE game's palette (canvas,
+                    // HUD, D-pad buttons, everything) rotates to a new color scheme
+                    // once a minute via a CSS hue-rotate filter on the container, so
+                    // long runs keep feeling visually fresh rather than static.
+                    this.themeTimer += dt;
+                    if (this.themeTimer >= 60) {
+                        this.themeTimer = 0;
+                        this.themeHue = (this.themeHue + 55) % 360;
+                        document.getElementById('game-container').style.filter = `hue-rotate(${this.themeHue}deg)`;
+                    }
+                    
+                    // Velocity calculation incorporating score mechanics and permanent timed multiplier steps
+                    let speed = (2.4 + Math.min(2.0, this.score * 0.06)) * this.speedMultiplier;
+                    this.p1.y -= speed * dt * 60;
+                    this.p2.y = this.p1.y;
+                    this.p1.x = this.currentCenter - this.ropeSpread / 2;
+                    this.p2.x = this.currentCenter + this.ropeSpread / 2;
+                    
+                    if(Math.random() < 0.6) {
+                        this.p1.trail.push({x: this.p1.x, y: this.p1.y});
+                        this.p2.trail.push({x: this.p2.x, y: this.p2.y});
+                        if(this.p1.trail.length > 22) this.p1.trail.shift();
+                        if(this.p2.trail.length > 22) this.p2.trail.shift();
+                    }
+                    
+                    this.targetCameraY = this.p1.y - this.height * 0.72;
+                    this.cameraY += (this.targetCameraY - this.cameraY) * 0.1 * dt * 60;
+                    this.spawnAmbientParticles();
+                    
+                    if (this.p1.y < this.generationY + this.height * 2) {
+                        this.generateNextChunk();
+                    }
+                    
+                    // Level failure only happens when a BALL touches an obstacle.
+                    // The rope line between the balls is allowed to visually cross
+                    // over/through boxes and pillars with zero penalty - only the two
+                    // circles at the ends are ever checked against obstacles below.
+                    for(let obs of this.obstacles) {
+                        obs.update(dt);
+                        if(obs.collidesWithCircle(this.p1.x, this.p1.y, this.p1.r) || 
+                           obs.collidesWithCircle(this.p2.x, this.p2.y, this.p2.r)) {
+                            this.handleDeath();
+                            return;
+                        }
+                    }
+                    
+                    for (let i = this.coins.length - 1; i >= 0; i--) {
+                        let coin = this.coins[i];
+                        coin.update(dt);
+                        
+                        if (coin.collidesWithCircle(this.p1.x, this.p1.y, this.p1.r) ||
+                            coin.collidesWithCircle(this.p2.x, this.p2.y, this.p2.r)) {
+                            Snd.play('coin');
+                            this.triggerCoinCollectionParticles(coin.x, coin.y);
+                            this.score++;
+                            document.getElementById('hudScore').innerText = `COINS: ${this.score}`;
+                            
+                            if (this.score > this.bestScore) {
+                                this.bestScore = this.score;
+                                document.getElementById('hudBestScore').innerText = `BEST: ${this.bestScore}`;
+                            }
+                            
+                            this.coins.splice(i, 1);
+                            this.coinTimer = 3.0; // Clear channel sequence interval validation loop
+                            continue;
+                        }
+                        
+                        if (coin.y - this.cameraY > this.height + 200) {
+                            this.coins.splice(i, 1);
+                        }
+                    }
+                    
+                    for (let i = this.obstacles.length - 1; i >= 0; i--) {
+                        if (this.obstacles[i].y - this.cameraY > this.height + 200) {
+                            this.obstacles.splice(i, 1);
+                        }
+                    }
+                    
+                } else if(this.gameState === 'dying') {
+                    this.transitionTimer += dt * 60;
+                    this.cameraY += (this.targetCameraY - this.cameraY) * 0.05 * dt * 60;
+                    if(this.transitionTimer >= 45) {
+                        this.showGameOver();
+                    }
+                }
+                
+                for(let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(dt);
+                    if(this.particles[i].life <= 0) this.particles.splice(i, 1);
+                }
+                
+                if(this.shakeAmount > 0) {
+                    this.shakeAmount -= dt * 60 * 0.8;
+                    if(this.shakeAmount < 0) this.shakeAmount = 0;
+                }
+            }
+            draw() {
+                this.ctx.save();
+                if(this.shakeAmount > 0) {
+                    let dx = (Math.random() - 0.5) * this.shakeAmount;
+                    let dy = (Math.random() - 0.5) * this.shakeAmount;
+                    this.ctx.translate(dx, dy);
+                }
+                // Background hue drifts gradually with LEVEL so long endless runs pass
+                // through subtly different color moods instead of one static backdrop.
+                const bgHue = (this.level * 18) % 360;
+                let bgGrad = this.ctx.createLinearGradient(0, 0, 0, this.height);
+                bgGrad.addColorStop(0, `hsl(${bgHue}, 55%, 4%)`);
+                bgGrad.addColorStop(0.5, `hsl(${bgHue}, 60%, 7%)`);
+                bgGrad.addColorStop(1, `hsl(${bgHue}, 55%, 2%)`);
+                this.ctx.fillStyle = bgGrad;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+                
+                this.stars.forEach(s => s.draw(this.ctx));
+                this.particles.forEach(p => p.draw(this.ctx, this.cameraY));
+                
+                if(this.gameState === 'play' || this.gameState === 'dying' || this.gameState === 'pause') {
+                    this.obstacles.forEach(obs => {
+                        if(obs.y - this.cameraY > -100 && obs.y - this.cameraY < this.height + 100) {
+                            obs.draw(this.ctx, this.cameraY);
+                        }
+                    });
+                    
+                    this.coins.forEach(coin => {
+                        if(coin.y - this.cameraY > -100 && coin.y - this.cameraY < this.height + 100) {
+                            coin.draw(this.ctx, this.cameraY);
+                        }
+                    });
+                    
+                    if(this.gameState !== 'dying') {
+                        this.drawRope();
+                        this.drawPlayerBall(this.p1);
+                        this.drawPlayerBall(this.p2);
+                    }
+                }
+                this.ctx.restore();
+            }
+            drawPlayerBall(p) {
+                this.ctx.save();
+                if(this.graphicsQuality === 'high') {
+                    this.ctx.shadowBlur = 18;
+                    this.ctx.shadowColor = p.color;
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+                    p.trail.forEach((pt, i) => {
+                        this.ctx.beginPath();
+                        this.ctx.arc(pt.x, pt.y - this.cameraY, p.r * (i / p.trail.length) * 0.8, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    });
+                }
+                let drawY = p.y - this.cameraY;
+                let grad = this.ctx.createRadialGradient(p.x, drawY, 2, p.x, drawY, p.r);
+                grad.addColorStop(0, '#ffffff');
+                grad.addColorStop(0.4, p.color);
+                grad.addColorStop(1, 'transparent');
+                this.ctx.fillStyle = grad;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, drawY, p.r, 0, Math.PI * 2);
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.beginPath();
+                this.ctx.arc(p.x, drawY, p.r * 0.5, 0, Math.PI * 2);
+                this.ctx.stroke();
+                this.ctx.restore();
+            }
+            drawRope() {
+                this.ctx.save();
+                let y1 = this.p1.y - this.cameraY;
+                let y2 = this.p2.y - this.cameraY;
+                let ropeGrad = this.ctx.createLinearGradient(this.p1.x, y1, this.p2.x, y2);
+                ropeGrad.addColorStop(0, this.p1.color);
+                ropeGrad.addColorStop(0.5, '#e0f2fe');
+                ropeGrad.addColorStop(1, this.p2.color);
+                
+                this.ctx.shadowBlur = 15;
+                this.ctx.shadowColor = '#a855f7';
+                this.ctx.strokeStyle = ropeGrad;
+                this.ctx.lineWidth = 4.5;
+                this.ctx.lineCap = 'round';
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.p1.x, y1);
+                this.ctx.lineTo(this.p2.x, y2);
+                this.ctx.stroke();
+                
+                this.ctx.lineWidth = 1.5;
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.p1.x, y1);
+                this.ctx.lineTo(this.p2.x, y2);
+                this.ctx.stroke();
+                this.ctx.restore();
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            window.GameInstance = new Game();
+        });
+    </script>
+</body>
+</html>
